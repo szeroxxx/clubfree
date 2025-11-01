@@ -1,24 +1,34 @@
-
 import React from 'react';
 import { type View } from '../types';
 import { DashboardIcon, ClientsIcon, ProjectsIcon, TasksIcon, InvoicesIcon, DocumentsIcon, LogoIcon } from './Icons';
 
 interface SidebarProps {
-  activeView: View;
-  setActiveView: (view: View) => void;
+  currentPath: string;
+  navigate: (path: string) => void;
 }
+
+const viewToPath: Record<View, string> = {
+  Dashboard: '/dashboard',
+  Clients: '/clients',
+  Projects: '/projects',
+  Tasks: '/tasks',
+  Invoices: '/invoices',
+  Documents: '/documents',
+};
 
 const NavItem: React.FC<{
   viewName: View;
-  activeView: View;
-  setActiveView: (view: View) => void;
+  currentPath: string;
+  navigate: (path: string) => void;
   children: React.ReactNode;
-}> = ({ viewName, activeView, setActiveView, children }) => {
-  const isActive = activeView === viewName;
+}> = ({ viewName, currentPath, navigate, children }) => {
+  const path = viewToPath[viewName];
+  const isActive = currentPath === path || (currentPath === '/' && path === '/dashboard');
+  
   return (
     <li>
       <button
-        onClick={() => setActiveView(viewName)}
+        onClick={() => navigate(path)}
         className={`w-full flex items-center p-2 rounded-lg transition-colors duration-200 ${
           isActive
             ? 'bg-sky-500 text-white'
@@ -33,7 +43,7 @@ const NavItem: React.FC<{
 };
 
 
-const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentPath, navigate }) => {
   return (
     <aside className="w-64 bg-slate-800 p-4 flex flex-col h-full shadow-lg">
         <div className="flex items-center mb-8">
@@ -42,22 +52,22 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
         </div>
       <nav>
         <ul className="space-y-2">
-          <NavItem viewName="Dashboard" activeView={activeView} setActiveView={setActiveView}>
+          <NavItem viewName="Dashboard" currentPath={currentPath} navigate={navigate}>
             <DashboardIcon className="h-6 w-6" />
           </NavItem>
-          <NavItem viewName="Clients" activeView={activeView} setActiveView={setActiveView}>
+          <NavItem viewName="Clients" currentPath={currentPath} navigate={navigate}>
             <ClientsIcon className="h-6 w-6" />
           </NavItem>
-          <NavItem viewName="Projects" activeView={activeView} setActiveView={setActiveView}>
+          <NavItem viewName="Projects" currentPath={currentPath} navigate={navigate}>
             <ProjectsIcon className="h-6 w-6" />
           </NavItem>
-          <NavItem viewName="Tasks" activeView={activeView} setActiveView={setActiveView}>
+          <NavItem viewName="Tasks" currentPath={currentPath} navigate={navigate}>
             <TasksIcon className="h-6 w-6" />
           </NavItem>
-          <NavItem viewName="Invoices" activeView={activeView} setActiveView={setActiveView}>
+          <NavItem viewName="Invoices" currentPath={currentPath} navigate={navigate}>
             <InvoicesIcon className="h-6 w-6" />
           </NavItem>
-          <NavItem viewName="Documents" activeView={activeView} setActiveView={setActiveView}>
+          <NavItem viewName="Documents" currentPath={currentPath} navigate={navigate}>
             <DocumentsIcon className="h-6 w-6" />
           </NavItem>
         </ul>

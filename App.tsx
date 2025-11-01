@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Clients from './components/Clients';
@@ -6,12 +6,28 @@ import Projects from './components/Projects';
 import Tasks from './components/Tasks';
 import Invoices from './components/Invoices';
 import Documents from './components/Documents';
-import { type View, type Client, type Project, type Task, type Invoice, type Folder, type Doc, type ClientData, type ProjectData, type TaskData, type InvoiceData, type FolderData, type DocData } from './types';
+import { type Client, type Project, type Task, type Invoice, type Folder, type Doc, type ClientData, type ProjectData, type TaskData, type InvoiceData, type FolderData, type DocData } from './types';
 import { INITIAL_CLIENTS, INITIAL_PROJECTS, INITIAL_TASKS, INITIAL_INVOICES, INITIAL_FOLDERS, INITIAL_DOCS } from './constants';
 
 
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<View>('Dashboard');
+  const [location, setLocation] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setLocation(window.location.pathname);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+  
+  const navigate = (path: string) => {
+      if (window.location.pathname !== path) {
+        window.history.pushState({}, '', path);
+        setLocation(path);
+      }
+  };
 
   // Centralized State
   const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
@@ -49,18 +65,19 @@ const App: React.FC = () => {
   const handleDeleteDoc = (id: string) => setDocs(prev => prev.filter(d => d.id !== id));
 
   const renderView = () => {
-    switch (activeView) {
-      case 'Dashboard':
+    const currentPath = location === '/' ? '/dashboard' : location;
+    switch (currentPath) {
+      case '/dashboard':
         return <Dashboard clients={clients} projects={projects} tasks={tasks} invoices={invoices} />;
-      case 'Clients':
+      case '/clients':
         return <Clients clients={clients} onAdd={handleAddClient} onUpdate={handleUpdateClient} onDelete={handleDeleteClient} />;
-      case 'Projects':
+      case '/projects':
         return <Projects projects={projects} clients={clients} onAdd={handleAddProject} onUpdate={handleUpdateProject} onDelete={handleDeleteProject} />;
-      case 'Tasks':
+      case '/tasks':
         return <Tasks tasks={tasks} projects={projects} onAdd={handleAddTask} onUpdate={handleUpdateTask} onDelete={handleDeleteTask} />;
-      case 'Invoices':
+      case '/invoices':
         return <Invoices invoices={invoices} projects={projects} clients={clients} onAdd={handleAddInvoice} onUpdate={handleUpdateInvoice} onDelete={handleDeleteInvoice} />;
-      case 'Documents':
+      case '/documents':
         return <Documents 
                     folders={folders} 
                     docs={docs}
@@ -77,7 +94,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-900 text-slate-300 font-sans">
-      <Sidebar activeView={activeView} setActiveView={setActiveView} />
+      <Sidebar currentPath={location} navigate={navigate} />
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
         {renderView()}
       </main>
