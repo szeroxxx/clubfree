@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { type Folder, type Doc, type FolderData, type DocData } from '../types';
+import { type Folder, type Doc, type FolderData, type DocData, type User } from '../types';
 import { FolderIcon, DocumentIcon, PlusIcon, SparklesIcon, TrashIcon } from './Icons';
 import { generateText } from '../services/geminiService';
 import Modal from './Modal';
+import { canCreate, canDelete, canUpdate } from '../utils/permissions';
 
 interface DocumentsProps {
+    user: User;
     folders: Folder[];
     docs: Doc[];
     onAddFolder: (folderData: FolderData) => void;
@@ -14,12 +16,17 @@ interface DocumentsProps {
     onDeleteDoc: (id: string) => void;
 }
 
-const Documents: React.FC<DocumentsProps> = ({ folders, docs, onAddFolder, onDeleteFolder, onAddDoc, onUpdateDoc, onDeleteDoc }) => {
+const Documents: React.FC<DocumentsProps> = ({ user, folders, docs, onAddFolder, onDeleteFolder, onAddDoc, onUpdateDoc, onDeleteDoc }) => {
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(folders[0]?.id || null);
     const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
     const [isAiModalOpen, setIsAiModalOpen] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
+
+    const canUserCreate = canCreate(user, 'Document');
+    const canUserDelete = canDelete(user, 'Document');
+    const canUserUpdate = canUpdate(user, 'Document');
+
 
     useEffect(() => {
         if (!folders.some(f => f.id === selectedFolderId)) {
@@ -31,7 +38,7 @@ const Documents: React.FC<DocumentsProps> = ({ folders, docs, onAddFolder, onDel
     const docsInSelectedFolder = docs.filter(d => d.folderId === selectedFolderId);
 
     const handleDocContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        if (!selectedDoc) return;
+        if (!selectedDoc || !canUserUpdate) return;
         onUpdateDoc({ ...selectedDoc, content: e.target.value });
     };
 
@@ -63,12 +70,12 @@ const Documents: React.FC<DocumentsProps> = ({ folders, docs, onAddFolder, onDel
     };
 
     return (
-        <div className="flex h-[calc(100vh-4rem)] space-x-4">
+        <div className="flex h-[calc(100vh-6rem)] space-x-4">
             {/* Folders Pane */}
             <div className="w-1/4 bg-slate-800 rounded-xl p-4 flex flex-col">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-lg font-bold text-white">Folders</h2>
-                    <button onClick={handleAddFolderClick} className="text-slate-400 hover:text-white"><PlusIcon className="h-5 w-5" /></button>
+                    {canUserCreate && <button onClick={handleAddFolderClick} className="text-slate-400 hover:text-white"><PlusIcon className="h-5 w-5" /></button>}
                 </div>
                 <ul className="space-y-2 overflow-y-auto">
                     {folders.map(folder => (
@@ -81,9 +88,11 @@ const Documents: React.FC<DocumentsProps> = ({ folders, docs, onAddFolder, onDel
                                     <FolderIcon className="h-5 w-5 mr-3 flex-shrink-0" />
                                     <span className="font-medium truncate">{folder.name}</span>
                                 </button>
-                                <button onClick={() => onDeleteFolder(folder.id)} className="p-2 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <TrashIcon className="h-4 w-4" />
-                                </button>
+                                {canUserDelete && (
+                                    <button onClick={() => onDeleteFolder(folder.id)} className="p-2 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <TrashIcon className="h-4 w-4" />
+                                    </button>
+                                )}
                             </div>
                         </li>
                     ))}
@@ -94,7 +103,7 @@ const Documents: React.FC<DocumentsProps> = ({ folders, docs, onAddFolder, onDel
             <div className="w-1/4 bg-slate-800 rounded-xl p-4 flex flex-col">
                  <div className="flex justify-between items-center mb-4">
                     <h2 className="text-lg font-bold text-white">Documents</h2>
-                    <button onClick={handleAddDocClick} className="text-slate-400 hover:text-white disabled:text-slate-600" disabled={!selectedFolderId}><PlusIcon className="h-5 w-5" /></button>
+                    {canUserCreate && <button onClick={handleAddDocClick} className="text-slate-400 hover:text-white disabled:text-slate-600" disabled={!selectedFolderId}><PlusIcon className="h-5 w-5" /></button>}
                 </div>
                 {selectedFolderId && (
                     <ul className="space-y-2 overflow-y-auto">
@@ -108,9 +117,11 @@ const Documents: React.FC<DocumentsProps> = ({ folders, docs, onAddFolder, onDel
                                         <DocumentIcon className="h-5 w-5 mr-3 flex-shrink-0" />
                                         <span className="truncate">{doc.name}</span>
                                     </button>
-                                     <button onClick={() => onDeleteDoc(doc.id)} className="p-2 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <TrashIcon className="h-4 w-4" />
-                                    </button>
+                                    {canUserDelete && (
+                                        <button onClick={() => onDeleteDoc(doc.id)} className="p-2 text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <TrashIcon className="h-4 w-4" />
+                                        </button>
+                                    )}
                                 </div>
                             </li>
                         ))}
@@ -124,15 +135,18 @@ const Documents: React.FC<DocumentsProps> = ({ folders, docs, onAddFolder, onDel
                     <>
                         <div className="flex justify-between items-center mb-4">
                              <h2 className="text-lg font-bold text-white truncate pr-4">{selectedDoc.name}</h2>
-                             <button onClick={() => setIsAiModalOpen(true)} className="flex items-center bg-fuchsia-500 hover:bg-fuchsia-600 text-white font-bold py-2 px-4 rounded-lg transition-colors flex-shrink-0">
-                                 <SparklesIcon className="h-5 w-5 mr-2" />
-                                 AI Assistant
-                             </button>
+                             {canUserUpdate && (
+                                <button onClick={() => setIsAiModalOpen(true)} className="flex items-center bg-fuchsia-500 hover:bg-fuchsia-600 text-white font-bold py-2 px-4 rounded-lg transition-colors flex-shrink-0">
+                                    <SparklesIcon className="h-5 w-5 mr-2" />
+                                    AI Assistant
+                                </button>
+                             )}
                         </div>
                         <textarea
                             key={selectedDoc.id}
                             value={selectedDoc.content}
                             onChange={handleDocContentChange}
+                            readOnly={!canUserUpdate}
                             className="w-full h-full bg-slate-900 rounded-md p-4 text-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 resize-none"
                             placeholder="Start writing..."
                         />

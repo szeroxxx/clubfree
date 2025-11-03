@@ -1,9 +1,10 @@
 import React from 'react';
-import { type Client, type Project, type Task, type Invoice } from '../types';
+import { type Client, type Project, type Task, type Invoice, type User } from '../types';
 import { InvoicesIcon, TasksIcon, ProjectsIcon, ClientsIcon } from './Icons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface DashboardProps {
+    user: User;
     clients: Client[];
     projects: Project[];
     tasks: Task[];
@@ -20,19 +21,40 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
   </div>
 );
 
-const Dashboard: React.FC<DashboardProps> = ({ clients, projects, tasks, invoices }) => {
-    const activeProjects = projects.filter(p => p.status === 'Active').length;
-    const pendingTasks = tasks.filter(t => t.status !== 'Done').length;
-    const dueInvoices = invoices.filter(i => i.status === 'Sent' || i.status === 'Overdue').length;
+const Dashboard: React.FC<DashboardProps> = ({ user, clients, projects, tasks, invoices }) => {
+    
+    const { role, entityId } = user;
+
+    const filteredProjects = role === 'Admin' || role === 'Sales' || role === 'HR'
+        ? projects
+        : role === 'Client'
+            ? projects.filter(p => p.clientId === entityId)
+            : projects.filter(p => p.memberIds.includes(entityId));
+    
+    const filteredProjectIds = filteredProjects.map(p => p.id);
+    
+    const filteredTasks = role === 'Admin' || role === 'Sales' || role === 'HR'
+        ? tasks
+        : role === 'Client'
+            ? tasks.filter(t => filteredProjectIds.includes(t.projectId))
+            : tasks.filter(t => t.assigneeId === entityId);
+            
+    const filteredInvoices = role === 'Admin' || role === 'Sales' || role === 'HR'
+        ? invoices
+        : invoices.filter(i => filteredProjectIds.includes(i.projectId));
+
+    const activeProjects = filteredProjects.filter(p => p.status === 'Active').length;
+    const pendingTasks = filteredTasks.filter(t => t.status !== 'Done').length;
+    const dueInvoices = filteredInvoices.filter(i => i.status === 'Sent' || i.status === 'Overdue').length;
     const totalClients = clients.length;
 
-    const invoiceData = invoices.map(inv => ({
+    const invoiceData = filteredInvoices.map(inv => ({
         name: inv.invoiceNumber,
         Amount: inv.amount,
         Status: inv.status === 'Paid' ? 1 : 0,
     }));
 
-    const recentTasks = tasks.slice(-5).reverse();
+    const recentTasks = filteredTasks.slice(-5).reverse();
 
     return (
         <div className="space-y-8">
@@ -42,7 +64,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, projects, tasks, invoice
                 <StatCard title="Active Projects" value={activeProjects} icon={<ProjectsIcon className="h-6 w-6 text-sky-400" />} />
                 <StatCard title="Pending Tasks" value={pendingTasks} icon={<TasksIcon className="h-6 w-6 text-amber-400" />} />
                 <StatCard title="Awaiting Payment" value={dueInvoices} icon={<InvoicesIcon className="h-6 w-6 text-emerald-400" />} />
-                <StatCard title="Total Clients" value={totalClients} icon={<ClientsIcon className="h-6 w-6 text-fuchsia-400" />} />
+                { (role === 'Admin' || role === 'Sales') && <StatCard title="Total Clients" value={totalClients} icon={<ClientsIcon className="h-6 w-6 text-fuchsia-400" />} /> }
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -78,6 +100,7 @@ const Dashboard: React.FC<DashboardProps> = ({ clients, projects, tasks, invoice
                                 </span>
                             </li>
                         ))}
+                         {recentTasks.length === 0 && <p className="text-slate-500 text-center py-4">No recent tasks.</p>}
                     </ul>
                 </div>
             </div>

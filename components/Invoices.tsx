@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { type Invoice, type Project, type Client, type InvoiceData } from '../types';
+import { type Invoice, type Project, type Client, type InvoiceData, type User } from '../types';
 import { PlusIcon, EditIcon, TrashIcon } from './Icons';
 import Modal from './Modal';
+import { canCreate, canUpdate, canDelete } from '../utils/permissions';
 
 interface InvoicesProps {
+    user: User;
     invoices: Invoice[];
     projects: Project[];
     clients: Client[];
@@ -96,9 +98,13 @@ const InvoiceStatusBadge: React.FC<{ status: Invoice['status'] }> = ({ status })
     return <span className={`${baseClasses} ${statusClasses[status]}`}>{status}</span>;
 };
 
-const Invoices: React.FC<InvoicesProps> = ({ invoices, projects, clients, onAdd, onUpdate, onDelete }) => {
+const Invoices: React.FC<InvoicesProps> = ({ user, invoices, projects, clients, onAdd, onUpdate, onDelete }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+
+    const canUserCreate = canCreate(user, 'Invoice');
+    const canUserUpdate = canUpdate(user, 'Invoice');
+    const canUserDelete = canDelete(user, 'Invoice');
 
     const getInvoiceDetails = (projectId: string) => {
         const project = projects.find(p => p.id === projectId);
@@ -126,15 +132,25 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, projects, clients, onAdd,
             onAdd(data);
         }
     };
+    
+    const clientProjectIds = projects.filter(p => p.clientId === user.entityId).map(p => p.id);
+    const filteredInvoices = user.role === 'Admin'
+    ? invoices
+    : user.role === 'Client'
+        ? invoices.filter(i => clientProjectIds.includes(i.projectId))
+        : [];
+
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-white">Invoices</h1>
-                <button onClick={handleOpenAddModal} className="flex items-center bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                    <PlusIcon className="h-5 w-5 mr-2" />
-                    Create Invoice
-                </button>
+                {canUserCreate && (
+                    <button onClick={handleOpenAddModal} className="flex items-center bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        <PlusIcon className="h-5 w-5 mr-2" />
+                        Create Invoice
+                    </button>
+                )}
             </div>
 
             <div className="bg-slate-800 rounded-xl shadow-lg overflow-hidden">
@@ -147,11 +163,11 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, projects, clients, onAdd,
                             <th className="p-4 font-semibold text-white">Issue Date</th>
                             <th className="p-4 font-semibold text-white">Due Date</th>
                             <th className="p-4 font-semibold text-white">Status</th>
-                            <th className="p-4 font-semibold text-white">Actions</th>
+                            {(canUserUpdate || canUserDelete) && <th className="p-4 font-semibold text-white">Actions</th>}
                         </tr>
                     </thead>
                     <tbody>
-                        {invoices.map(invoice => {
+                        {filteredInvoices.map(invoice => {
                              const { projectName, clientName } = getInvoiceDetails(invoice.projectId);
                              return (
                                 <tr key={invoice.id} className="border-b border-slate-700 hover:bg-slate-700/30 transition-colors">
@@ -164,19 +180,23 @@ const Invoices: React.FC<InvoicesProps> = ({ invoices, projects, clients, onAdd,
                                     <td className="p-4">{invoice.issueDate}</td>
                                     <td className="p-4">{invoice.dueDate}</td>
                                     <td className="p-4"><InvoiceStatusBadge status={invoice.status} /></td>
-                                    <td className="p-4 space-x-4">
-                                        <button onClick={() => handleOpenEditModal(invoice)} className="text-sky-400 hover:text-sky-300 p-1"><EditIcon className="h-5 w-5" /></button>
-                                        <button onClick={() => onDelete(invoice.id)} className="text-red-400 hover:text-red-300 p-1"><TrashIcon className="h-5 w-5" /></button>
-                                    </td>
+                                    {(canUserUpdate || canUserDelete) && (
+                                        <td className="p-4 space-x-4">
+                                            {canUserUpdate && <button onClick={() => handleOpenEditModal(invoice)} className="text-sky-400 hover:text-sky-300 p-1"><EditIcon className="h-5 w-5" /></button>}
+                                            {canUserDelete && <button onClick={() => onDelete(invoice.id)} className="text-red-400 hover:text-red-300 p-1"><TrashIcon className="h-5 w-5" /></button>}
+                                        </td>
+                                    )}
                                 </tr>
                              );
                         })}
                     </tbody>
                 </table>
             </div>
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingInvoice ? "Edit Invoice" : "Create Invoice"}>
-                <InvoiceForm onSubmit={handleSave} initialData={editingInvoice} projects={projects} onClose={() => setIsModalOpen(false)} />
-            </Modal>
+            {isModalOpen &&
+                <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingInvoice ? "Edit Invoice" : "Create Invoice"}>
+                    <InvoiceForm onSubmit={handleSave} initialData={editingInvoice} projects={projects} onClose={() => setIsModalOpen(false)} />
+                </Modal>
+            }
         </div>
     );
 };

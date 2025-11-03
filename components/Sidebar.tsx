@@ -1,28 +1,31 @@
 import React from 'react';
-import { type View } from '../types';
-import { DashboardIcon, ClientsIcon, ProjectsIcon, TasksIcon, InvoicesIcon, DocumentsIcon, LogoIcon } from './Icons';
+import { type View, type User } from '../types';
+import { DashboardIcon, ClientsIcon, ProjectsIcon, TasksIcon, InvoicesIcon, DocumentsIcon, LogoIcon, UsersIcon } from './Icons';
+import { canViewPage } from '../utils/permissions';
 
 interface SidebarProps {
+  user: User;
   currentPath: string;
   navigate: (path: string) => void;
 }
 
-const viewToPath: Record<View, string> = {
-  Dashboard: '/dashboard',
-  Clients: '/clients',
-  Projects: '/projects',
-  Tasks: '/tasks',
-  Invoices: '/invoices',
-  Documents: '/documents',
-};
+const navItems: { viewName: View, path: string, icon: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
+    { viewName: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
+    { viewName: 'Clients', path: '/clients', icon: ClientsIcon },
+    { viewName: 'Projects', path: '/projects', icon: ProjectsIcon },
+    { viewName: 'Tasks', path: '/tasks', icon: TasksIcon },
+    { viewName: 'Invoices', path: '/invoices', icon: InvoicesIcon },
+    { viewName: 'Documents', path: '/documents', icon: DocumentsIcon },
+    { viewName: 'Employees', path: '/employees', icon: UsersIcon },
+];
 
 const NavItem: React.FC<{
-  viewName: View;
+  path: string;
+  viewName: string;
   currentPath: string;
   navigate: (path: string) => void;
   children: React.ReactNode;
-}> = ({ viewName, currentPath, navigate, children }) => {
-  const path = viewToPath[viewName];
+}> = ({ path, viewName, currentPath, navigate, children }) => {
   const isActive = currentPath === path || (currentPath === '/' && path === '/dashboard');
   
   return (
@@ -43,33 +46,22 @@ const NavItem: React.FC<{
 };
 
 
-const Sidebar: React.FC<SidebarProps> = ({ currentPath, navigate }) => {
+const Sidebar: React.FC<SidebarProps> = ({ user, currentPath, navigate }) => {
+  const availableNavItems = navItems.filter(item => canViewPage(user, item.path));
+
   return (
-    <aside className="w-64 bg-slate-800 p-4 flex flex-col h-full shadow-lg">
+    <aside className="w-64 bg-slate-800 p-4 flex-col h-full shadow-lg hidden md:flex">
         <div className="flex items-center mb-8">
             <LogoIcon className="h-8 w-8 text-sky-400" />
             <h1 className="text-xl font-bold text-white ml-2">FreelanceHQ</h1>
         </div>
       <nav>
         <ul className="space-y-2">
-          <NavItem viewName="Dashboard" currentPath={currentPath} navigate={navigate}>
-            <DashboardIcon className="h-6 w-6" />
-          </NavItem>
-          <NavItem viewName="Clients" currentPath={currentPath} navigate={navigate}>
-            <ClientsIcon className="h-6 w-6" />
-          </NavItem>
-          <NavItem viewName="Projects" currentPath={currentPath} navigate={navigate}>
-            <ProjectsIcon className="h-6 w-6" />
-          </NavItem>
-          <NavItem viewName="Tasks" currentPath={currentPath} navigate={navigate}>
-            <TasksIcon className="h-6 w-6" />
-          </NavItem>
-          <NavItem viewName="Invoices" currentPath={currentPath} navigate={navigate}>
-            <InvoicesIcon className="h-6 w-6" />
-          </NavItem>
-          <NavItem viewName="Documents" currentPath={currentPath} navigate={navigate}>
-            <DocumentsIcon className="h-6 w-6" />
-          </NavItem>
+            {availableNavItems.map(item => (
+                <NavItem key={item.path} path={item.path} viewName={item.viewName} currentPath={currentPath} navigate={navigate}>
+                    <item.icon className="h-6 w-6" />
+                </NavItem>
+            ))}
         </ul>
       </nav>
       <div className="mt-auto p-4 bg-slate-700/50 rounded-lg text-center">

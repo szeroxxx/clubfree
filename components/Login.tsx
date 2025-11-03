@@ -1,0 +1,83 @@
+import React, { useState } from 'react';
+import { LogoIcon } from './Icons';
+
+interface LoginProps {
+    onLogin: (username, password) => boolean;
+}
+
+const Login: React.FC<LoginProps> = ({ onLogin }) => {
+    const [username, setUsername] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const success = onLogin(username, password);
+        if (!success) {
+            setError('Invalid username or password.');
+        }
+    };
+
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-slate-900">
+            <div className="w-full max-w-md p-8 space-y-8 bg-slate-800 rounded-2xl shadow-2xl border border-slate-700">
+                <div className="flex flex-col items-center">
+                    <LogoIcon className="h-12 w-12 text-sky-400" />
+                    <h2 className="mt-4 text-3xl font-bold text-center text-white">
+                        Welcome to FreelanceHQ
+                    </h2>
+                    <p className="mt-2 text-center text-sm text-slate-400">
+                        Sign in to your command center
+                    </p>
+                </div>
+                <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                    <div className="rounded-md shadow-sm -space-y-px">
+                        <div>
+                            <label htmlFor="username" className="sr-only">Username</label>
+                            <input
+                                id="username"
+                                name="username"
+                                type="text"
+                                autoComplete="username"
+                                required
+                                value={username}
+                                onChange={(e) => setUsername(e.target.value)}
+                                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-slate-600 bg-slate-700 text-white placeholder-slate-400 rounded-t-md focus:outline-none focus:ring-sky-500 focus:border-sky-500 focus:z-10 sm:text-sm"
+                                placeholder="Username"
+                            />
+                        </div>
+                        <div>
+                            <label htmlFor="password" className="sr-only">Password</label>
+                            <input
+                                id="password"
+                                name="password"
+                                type="password"
+                                autoComplete="current-password"
+                                required
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-slate-600 bg-slate-700 text-white placeholder-slate-400 rounded-b-md focus:outline-none focus:ring-sky-500 focus:border-sky-500 focus:z-10 sm:text-sm"
+                                placeholder="Password"
+                            />
+                        </div>
+                    </div>
+
+                    {error && (
+                        <p className="text-red-400 text-sm text-center">{error}</p>
+                    )}
+
+                    <div>
+                        <button
+                            type="submit"
+                            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-sky-500 transition-colors"
+                        >
+                            Sign in
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
+export default Login;

@@ -1,22 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { type Task, type Project, type TaskData } from '../types';
+import { type Task, type Project, type Employee, type TaskData, type User } from '../types';
 import { PlusIcon, EditIcon, TrashIcon } from './Icons';
 import Modal from './Modal';
+import { canCreate, canUpdate, canDelete } from '../utils/permissions';
+
 
 interface TasksProps {
+    user: User;
     tasks: Task[];
     projects: Project[];
+    employees: Employee[];
     onAdd: (task: TaskData) => void;
     onUpdate: (task: Task) => void;
     onDelete: (id: string) => void;
 }
 
-const TaskForm: React.FC<{ onSubmit: (data: TaskData) => void; initialData?: Task | null; projects: Project[]; onClose: () => void }> = ({ onSubmit, initialData, projects, onClose }) => {
+const TaskForm: React.FC<{ user: User; onSubmit: (data: TaskData) => void; initialData?: Task | null; projects: Project[]; employees: Employee[]; onClose: () => void }> = ({ user, onSubmit, initialData, projects, employees, onClose }) => {
     const [title, setTitle] = useState('');
     const [projectId, setProjectId] = useState('');
     const [dueDate, setDueDate] = useState('');
     const [priority, setPriority] = useState<Task['priority']>('Medium');
     const [status, setStatus] = useState<Task['status']>('To Do');
+    const [assigneeId, setAssigneeId] = useState('');
+    
+    const relevantProjects = user.role === 'Admin' ? projects : projects.filter(p => p.memberIds.includes(user.entityId) || p.clientId === user.entityId);
 
     useEffect(() => {
         if (initialData) {
@@ -25,14 +32,19 @@ const TaskForm: React.FC<{ onSubmit: (data: TaskData) => void; initialData?: Tas
             setDueDate(initialData.dueDate);
             setPriority(initialData.priority);
             setStatus(initialData.status);
-        } else if (projects.length > 0) {
-            setProjectId(projects[0].id);
+            setAssigneeId(initialData.assigneeId);
+        } else if (relevantProjects.length > 0) {
+            setProjectId(relevantProjects[0].id);
+            if(employees.length > 0) setAssigneeId(employees[0].id);
         }
-    }, [initialData, projects]);
+    }, [initialData, relevantProjects, employees]);
+    
+    const projectMembers = projects.find(p => p.id === projectId)?.memberIds || [];
+    const availableAssignees = employees.filter(e => projectMembers.includes(e.id));
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit({ title, projectId, dueDate, priority, status });
+        onSubmit({ title, projectId, dueDate, priority, status, assigneeId });
         onClose();
     };
 
@@ -45,7 +57,14 @@ const TaskForm: React.FC<{ onSubmit: (data: TaskData) => void; initialData?: Tas
             <div>
                 <label className="block text-sm font-medium text-slate-400">Project</label>
                 <select value={projectId} onChange={e => setProjectId(e.target.value)} className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-sky-500 focus:border-sky-500" required>
-                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {relevantProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+            </div>
+             <div>
+                <label className="block text-sm font-medium text-slate-400">Assign To</label>
+                <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)} className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-sky-500 focus:border-sky-500" required>
+                    {availableAssignees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    {availableAssignees.length === 0 && <option disabled>No members on this project</option>}
                 </select>
             </div>
             <div>
@@ -99,9 +118,13 @@ const TaskStatusBadge: React.FC<{ status: Task['status'] }> = ({ status }) => {
 }
 
 
-const Tasks: React.FC<TasksProps> = ({ tasks, projects, onAdd, onUpdate, onDelete }) => {
+const Tasks: React.FC<TasksProps> = ({ user, tasks, projects, employees, onAdd, onUpdate, onDelete }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+    const canUserCreate = canCreate(user, 'Task');
+    const canUserUpdate = canUpdate(user, 'Task');
+    const canUserDelete = canDelete(user, 'Task');
 
     const getProjectName = (projectId: string) => projects.find(p => p.id === projectId)?.name || 'Unknown Project';
     
@@ -123,14 +146,23 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onAdd, onUpdate, onDelet
         }
     };
 
+    const clientProjectIds = projects.filter(p => p.clientId === user.entityId).map(p => p.id);
+    const filteredTasks = user.role === 'Admin'
+    ? tasks
+    : user.role === 'Client'
+        ? tasks.filter(t => clientProjectIds.includes(t.projectId))
+        : tasks.filter(t => t.assigneeId === user.entityId);
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-white">Tasks</h1>
-                 <button onClick={handleOpenAddModal} className="flex items-center bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                    <PlusIcon className="h-5 w-5 mr-2" />
-                    Add Task
-                </button>
+                {canUserCreate && (
+                    <button onClick={handleOpenAddModal} className="flex items-center bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        <PlusIcon className="h-5 w-5 mr-2" />
+                        Add Task
+                    </button>
+                )}
             </div>
 
             <div className="bg-slate-800 rounded-xl shadow-lg overflow-hidden">
@@ -142,29 +174,33 @@ const Tasks: React.FC<TasksProps> = ({ tasks, projects, onAdd, onUpdate, onDelet
                             <th className="p-4 font-semibold text-white">Due Date</th>
                             <th className="p-4 font-semibold text-white">Priority</th>
                             <th className="p-4 font-semibold text-white">Status</th>
-                            <th className="p-4 font-semibold text-white">Actions</th>
+                            {(canUserUpdate || canUserDelete) && <th className="p-4 font-semibold text-white">Actions</th>}
                         </tr>
                     </thead>
                     <tbody>
-                        {tasks.map(task => (
+                        {filteredTasks.map(task => (
                             <tr key={task.id} className="border-b border-slate-700 hover:bg-slate-700/30 transition-colors">
                                 <td className="p-4 font-medium text-white">{task.title}</td>
                                 <td className="p-4">{getProjectName(task.projectId)}</td>
                                 <td className="p-4">{task.dueDate}</td>
                                 <td className="p-4"><TaskPriorityBadge priority={task.priority} /></td>
                                 <td className="p-4"><TaskStatusBadge status={task.status} /></td>
-                                <td className="p-4 space-x-4">
-                                     <button onClick={() => handleOpenEditModal(task)} className="text-sky-400 hover:text-sky-300 p-1"><EditIcon className="h-5 w-5" /></button>
-                                     <button onClick={() => onDelete(task.id)} className="text-red-400 hover:text-red-300 p-1"><TrashIcon className="h-5 w-5" /></button>
-                                </td>
+                                {(canUserUpdate || canUserDelete) && (
+                                    <td className="p-4 space-x-4">
+                                        {canUserUpdate && <button onClick={() => handleOpenEditModal(task)} className="text-sky-400 hover:text-sky-300 p-1"><EditIcon className="h-5 w-5" /></button>}
+                                        {canUserDelete && <button onClick={() => onDelete(task.id)} className="text-red-400 hover:text-red-300 p-1"><TrashIcon className="h-5 w-5" /></button>}
+                                    </td>
+                                )}
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingTask ? "Edit Task" : "Add Task"}>
-                <TaskForm onSubmit={handleSave} initialData={editingTask} projects={projects} onClose={() => setIsModalOpen(false)} />
-            </Modal>
+            {isModalOpen &&
+                <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingTask ? "Edit Task" : "Add Task"}>
+                    <TaskForm user={user} onSubmit={handleSave} initialData={editingTask} projects={projects} employees={employees} onClose={() => setIsModalOpen(false)} />
+                </Modal>
+            }
         </div>
     );
 };

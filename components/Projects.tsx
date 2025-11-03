@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { type Project, type Client, type ProjectData } from '../types';
+import { type Project, type Client, type Employee, type ProjectData, type User } from '../types';
 import { PlusIcon, EditIcon, TrashIcon } from './Icons';
 import Modal from './Modal';
+import { canCreate, canUpdate, canDelete } from '../utils/permissions';
 
 interface ProjectsProps {
+    user: User;
     projects: Project[];
     clients: Client[];
+    employees: Employee[];
     onAdd: (project: ProjectData) => void;
     onUpdate: (project: Project) => void;
     onDelete: (id: string) => void;
 }
 
-const ProjectForm: React.FC<{ onSubmit: (data: ProjectData) => void; initialData?: Project | null; clients: Client[]; onClose: () => void }> = ({ onSubmit, initialData, clients, onClose }) => {
+const ProjectForm: React.FC<{ onSubmit: (data: ProjectData) => void; initialData?: Project | null; clients: Client[]; employees: Employee[]; onClose: () => void }> = ({ onSubmit, initialData, clients, employees, onClose }) => {
     const [name, setName] = useState('');
     const [clientId, setClientId] = useState('');
     const [deadline, setDeadline] = useState('');
     const [status, setStatus] = useState<Project['status']>('Active');
+    const [memberIds, setMemberIds] = useState<string[]>([]);
 
     useEffect(() => {
         if (initialData) {
@@ -23,6 +27,7 @@ const ProjectForm: React.FC<{ onSubmit: (data: ProjectData) => void; initialData
             setClientId(initialData.clientId);
             setDeadline(initialData.deadline);
             setStatus(initialData.status);
+            setMemberIds(initialData.memberIds);
         } else if (clients.length > 0) {
             setClientId(clients[0].id);
         }
@@ -30,8 +35,14 @@ const ProjectForm: React.FC<{ onSubmit: (data: ProjectData) => void; initialData
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onSubmit({ name, clientId, deadline, status });
+        onSubmit({ name, clientId, deadline, status, memberIds });
         onClose();
+    };
+    
+    const handleMembersChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        // Fix: Explicitly type `option` as `HTMLOptionElement` to resolve type inference issue.
+        const selectedOptions = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
+        setMemberIds(selectedOptions);
     };
 
     return (
@@ -44,6 +55,12 @@ const ProjectForm: React.FC<{ onSubmit: (data: ProjectData) => void; initialData
                 <label className="block text-sm font-medium text-slate-400">Client</label>
                 <select value={clientId} onChange={e => setClientId(e.target.value)} className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-sky-500 focus:border-sky-500" required>
                     {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-slate-400">Team Members</label>
+                <select multiple value={memberIds} onChange={handleMembersChange} className="mt-1 block w-full h-32 bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-sky-500 focus:border-sky-500">
+                    {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
             </div>
             <div>
@@ -77,10 +94,14 @@ const ProjectStatusBadge: React.FC<{ status: Project['status'] }> = ({ status })
     return <span className={`${baseClasses} ${statusClasses[status]}`}>{status}</span>;
 }
 
-const Projects: React.FC<ProjectsProps> = ({ projects, clients, onAdd, onUpdate, onDelete }) => {
+const Projects: React.FC<ProjectsProps> = ({ user, projects, clients, employees, onAdd, onUpdate, onDelete }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProject, setEditingProject] = useState<Project | null>(null);
-    
+
+    const canUserCreate = canCreate(user, 'Project');
+    const canUserUpdate = canUpdate(user, 'Project');
+    const canUserDelete = canDelete(user, 'Project');
+
     const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'Unknown Client';
 
     const handleOpenAddModal = () => {
@@ -101,14 +122,22 @@ const Projects: React.FC<ProjectsProps> = ({ projects, clients, onAdd, onUpdate,
         }
     };
 
+    const filteredProjects = user.role === 'Admin' || user.role === 'Sales'
+    ? projects
+    : user.role === 'Client'
+        ? projects.filter(p => p.clientId === user.entityId)
+        : projects.filter(p => p.memberIds.includes(user.entityId));
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-white">Projects</h1>
-                <button onClick={handleOpenAddModal} className="flex items-center bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-                    <PlusIcon className="h-5 w-5 mr-2" />
-                    Add Project
-                </button>
+                {canUserCreate && (
+                    <button onClick={handleOpenAddModal} className="flex items-center bg-sky-500 hover:bg-sky-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                        <PlusIcon className="h-5 w-5 mr-2" />
+                        Add Project
+                    </button>
+                )}
             </div>
 
             <div className="bg-slate-800 rounded-xl shadow-lg overflow-hidden">
@@ -119,27 +148,29 @@ const Projects: React.FC<ProjectsProps> = ({ projects, clients, onAdd, onUpdate,
                             <th className="p-4 font-semibold text-white">Client</th>
                             <th className="p-4 font-semibold text-white">Deadline</th>
                             <th className="p-4 font-semibold text-white">Status</th>
-                            <th className="p-4 font-semibold text-white">Actions</th>
+                            {(canUserUpdate || canUserDelete) && <th className="p-4 font-semibold text-white">Actions</th>}
                         </tr>
                     </thead>
                     <tbody>
-                        {projects.map(project => (
+                        {filteredProjects.map(project => (
                             <tr key={project.id} className="border-b border-slate-700 hover:bg-slate-700/30 transition-colors">
                                 <td className="p-4 font-medium text-white">{project.name}</td>
                                 <td className="p-4">{getClientName(project.clientId)}</td>
                                 <td className="p-4">{project.deadline}</td>
                                 <td className="p-4"><ProjectStatusBadge status={project.status} /></td>
-                                <td className="p-4 space-x-4">
-                                    <button onClick={() => handleOpenEditModal(project)} className="text-sky-400 hover:text-sky-300 p-1"><EditIcon className="h-5 w-5" /></button>
-                                    <button onClick={() => onDelete(project.id)} className="text-red-400 hover:text-red-300 p-1"><TrashIcon className="h-5 w-5" /></button>
-                                </td>
+                                {(canUserUpdate || canUserDelete) && (
+                                    <td className="p-4 space-x-4">
+                                        {canUserUpdate && <button onClick={() => handleOpenEditModal(project)} className="text-sky-400 hover:text-sky-300 p-1"><EditIcon className="h-5 w-5" /></button>}
+                                        {canUserDelete && <button onClick={() => onDelete(project.id)} className="text-red-400 hover:text-red-300 p-1"><TrashIcon className="h-5 w-5" /></button>}
+                                    </td>
+                                )}
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
             <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingProject ? "Edit Project" : "Add Project"}>
-                <ProjectForm onSubmit={handleSave} initialData={editingProject} clients={clients} onClose={() => setIsModalOpen(false)} />
+                <ProjectForm onSubmit={handleSave} initialData={editingProject} clients={clients} employees={employees} onClose={() => setIsModalOpen(false)} />
             </Modal>
         </div>
     );
