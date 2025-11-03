@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { type User } from '../types';
-import { INITIAL_USERS } from '../constants';
+import * as api from '../services/api';
 
 export const useAuth = () => {
     const [user, setUser] = useState<User | null>(null);
@@ -9,31 +9,35 @@ export const useAuth = () => {
     useEffect(() => {
         try {
             const storedUser = localStorage.getItem('user');
-            if (storedUser) {
+            const token = localStorage.getItem('token');
+            if (storedUser && token) {
                 setUser(JSON.parse(storedUser));
             }
         } catch (error) {
             console.error("Failed to parse user from localStorage", error);
             localStorage.removeItem('user');
+            localStorage.removeItem('token');
         } finally {
             setLoading(false);
         }
     }, []);
 
-    const login = useCallback((username, password) => {
-        const foundUser = INITIAL_USERS.find(u => u.username === username && u.password === password);
-        if (foundUser) {
-            const userToStore = { ...foundUser };
-            delete userToStore.password; // Don't store password
-            localStorage.setItem('user', JSON.stringify(userToStore));
-            setUser(userToStore);
+    const login = useCallback(async (username: string, password: string) => {
+        try {
+            const { user: userData, token } = await api.login(username, password);
+            localStorage.setItem('user', JSON.stringify(userData));
+            localStorage.setItem('token', token);
+            setUser(userData);
             return true;
+        } catch (error) {
+            console.error('Login failed:', error);
+            return false;
         }
-        return false;
     }, []);
 
     const logout = useCallback(() => {
         localStorage.removeItem('user');
+        localStorage.removeItem('token');
         setUser(null);
     }, []);
 

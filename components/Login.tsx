@@ -24,7 +24,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="flex flex-col items-center">
                     <LogoIcon className="h-12 w-12 text-sky-400" />
                     <h2 className="mt-4 text-3xl font-bold text-center text-white">
-                        Welcome to FreelanceHQ
+                        ClubHQ
                     </h2>
                     <p className="mt-2 text-center text-sm text-slate-400">
                         Sign in to your command center

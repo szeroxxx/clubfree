@@ -53,7 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ user, currentPath, navigate }) => {
     <aside className="w-64 bg-slate-800 p-4 flex-col h-full shadow-lg hidden md:flex">
         <div className="flex items-center mb-8">
             <LogoIcon className="h-8 w-8 text-sky-400" />
-            <h1 className="text-xl font-bold text-white ml-2">FreelanceHQ</h1>
+            <h1 className="text-xl font-bold text-white ml-2">CLUBHQ</h1>
         </div>
       <nav>
         <ul className="space-y-2">

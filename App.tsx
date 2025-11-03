@@ -13,8 +13,8 @@ import Documents from './components/Documents';
 import Employees from './components/Employees';
 
 import { type Client, type Project, type Task, type Invoice, type Folder, type Doc, type Employee, type ClientData, type ProjectData, type TaskData, type InvoiceData, type FolderData, type DocData, type EmployeeData } from './types';
-import { INITIAL_CLIENTS, INITIAL_PROJECTS, INITIAL_TASKS, INITIAL_INVOICES, INITIAL_FOLDERS, INITIAL_DOCS, INITIAL_EMPLOYEES } from './constants';
 import { canViewPage } from './utils/permissions';
+import * as api from './services/api';
 
 
 const App: React.FC = () => {
@@ -37,44 +37,225 @@ const App: React.FC = () => {
   };
 
   // Centralized State
-  const [clients, setClients] = useState<Client[]>(INITIAL_CLIENTS);
-  const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
-  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
-  const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
-  const [folders, setFolders] = useState<Folder[]>(INITIAL_FOLDERS);
-  const [docs, setDocs] = useState<Doc[]>(INITIAL_DOCS);
-  const [employees, setEmployees] = useState<Employee[]>(INITIAL_EMPLOYEES);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [docs, setDocs] = useState<Doc[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  // Fetch data on mount
+  useEffect(() => {
+    if (!user) return;
+    
+    const fetchData = async () => {
+      try {
+        const [clientsData, employeesData, projectsData, tasksData, invoicesData, foldersData, docsData] = await Promise.all([
+          api.getClients(),
+          api.getEmployees(),
+          api.getProjects(),
+          api.getTasks(),
+          api.getInvoices(),
+          api.getFolders(),
+          api.getDocs()
+        ]);
+        
+        setClients(clientsData);
+        setEmployees(employeesData);
+        setProjects(projectsData);
+        setTasks(tasksData);
+        setInvoices(invoicesData);
+        setFolders(foldersData);
+        setDocs(docsData);
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      }
+    };
+    
+    fetchData();
+  }, [user]);
 
   // CRUD Handlers
-  const handleAddClient = (clientData: ClientData) => setClients(prev => [...prev, { ...clientData, id: `cli-${Date.now()}` }]);
-  const handleUpdateClient = (updatedClient: Client) => setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
-  const handleDeleteClient = (id: string) => setClients(prev => prev.filter(c => c.id !== id));
-
-  const handleAddProject = (projectData: ProjectData) => setProjects(prev => [...prev, { ...projectData, id: `proj-${Date.now()}` }]);
-  const handleUpdateProject = (updatedProject: Project) => setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
-  const handleDeleteProject = (id: string) => setProjects(prev => prev.filter(p => p.id !== id));
-
-  const handleAddTask = (taskData: TaskData) => setTasks(prev => [...prev, { ...taskData, id: `task-${Date.now()}` }]);
-  const handleUpdateTask = (updatedTask: Task) => setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
-  const handleDeleteTask = (id: string) => setTasks(prev => prev.filter(t => t.id !== id));
-
-  const handleAddInvoice = (invoiceData: InvoiceData) => setInvoices(prev => [...prev, { ...invoiceData, id: `inv-${Date.now()}` }]);
-  const handleUpdateInvoice = (updatedInvoice: Invoice) => setInvoices(prev => prev.map(i => i.id === updatedInvoice.id ? updatedInvoice : i));
-  const handleDeleteInvoice = (id: string) => setInvoices(prev => prev.filter(i => i.id !== id));
+  const handleAddClient = async (clientData: ClientData) => {
+    try {
+      const newClient = await api.createClient(clientData);
+      setClients(prev => [...prev, newClient]);
+    } catch (error) {
+      console.error('Failed to add client:', error);
+    }
+  };
+  const handleUpdateClient = async (updatedClient: Client) => {
+    try {
+      await api.updateClient(updatedClient.id, updatedClient);
+      setClients(prev => prev.map(c => c.id === updatedClient.id ? updatedClient : c));
+    } catch (error) {
+      console.error('Failed to update client:', error);
+    }
+  };
   
-  const handleAddFolder = (folderData: FolderData) => setFolders(prev => [...prev, { ...folderData, id: `folder-${Date.now()}` }]);
-  const handleDeleteFolder = (id: string) => {
-    setFolders(prev => prev.filter(f => f.id !== id));
-    setDocs(prev => prev.filter(d => d.folderId !== id));
+  const handleDeleteClient = async (id: string) => {
+    try {
+      await api.deleteClient(id);
+      setClients(prev => prev.filter(c => c.id !== id));
+    } catch (error) {
+      console.error('Failed to delete client:', error);
+    }
   };
 
-  const handleAddDoc = (docData: DocData) => setDocs(prev => [...prev, { ...docData, id: `doc-${Date.now()}` }]);
-  const handleUpdateDoc = (updatedDoc: Doc) => setDocs(prev => prev.map(d => d.id === updatedDoc.id ? updatedDoc : d));
-  const handleDeleteDoc = (id: string) => setDocs(prev => prev.filter(d => d.id !== id));
+  const handleAddProject = async (projectData: ProjectData) => {
+    try {
+      const newProject = await api.createProject(projectData);
+      setProjects(prev => [...prev, newProject]);
+    } catch (error) {
+      console.error('Failed to add project:', error);
+    }
+  };
   
-  const handleAddEmployee = (employeeData: EmployeeData) => setEmployees(prev => [...prev, { ...employeeData, id: `emp-${Date.now()}` }]);
-  const handleUpdateEmployee = (updatedEmployee: Employee) => setEmployees(prev => prev.map(e => e.id === updatedEmployee.id ? updatedEmployee : e));
-  const handleDeleteEmployee = (id: string) => setEmployees(prev => prev.filter(e => e.id !== id));
+  const handleUpdateProject = async (updatedProject: Project) => {
+    try {
+      await api.updateProject(updatedProject.id, updatedProject);
+      setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+    } catch (error) {
+      console.error('Failed to update project:', error);
+    }
+  };
+  
+  const handleDeleteProject = async (id: string) => {
+    try {
+      await api.deleteProject(id);
+      setProjects(prev => prev.filter(p => p.id !== id));
+    } catch (error) {
+      console.error('Failed to delete project:', error);
+    }
+  };
+
+  const handleAddTask = async (taskData: TaskData) => {
+    try {
+      const newTask = await api.createTask(taskData);
+      setTasks(prev => [...prev, newTask]);
+    } catch (error) {
+      console.error('Failed to add task:', error);
+    }
+  };
+  
+  const handleUpdateTask = async (updatedTask: Task) => {
+    try {
+      await api.updateTask(updatedTask.id, updatedTask);
+      setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+    } catch (error) {
+      console.error('Failed to update task:', error);
+    }
+  };
+  
+  const handleDeleteTask = async (id: string) => {
+    try {
+      await api.deleteTask(id);
+      setTasks(prev => prev.filter(t => t.id !== id));
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+    }
+  };
+
+  const handleAddInvoice = async (invoiceData: InvoiceData) => {
+    try {
+      const newInvoice = await api.createInvoice(invoiceData);
+      setInvoices(prev => [...prev, newInvoice]);
+    } catch (error) {
+      console.error('Failed to add invoice:', error);
+    }
+  };
+  
+  const handleUpdateInvoice = async (updatedInvoice: Invoice) => {
+    try {
+      await api.updateInvoice(updatedInvoice.id, updatedInvoice);
+      setInvoices(prev => prev.map(i => i.id === updatedInvoice.id ? updatedInvoice : i));
+    } catch (error) {
+      console.error('Failed to update invoice:', error);
+    }
+  };
+  
+  const handleDeleteInvoice = async (id: string) => {
+    try {
+      await api.deleteInvoice(id);
+      setInvoices(prev => prev.filter(i => i.id !== id));
+    } catch (error) {
+      console.error('Failed to delete invoice:', error);
+    }
+  };
+  
+  const handleAddFolder = async (folderData: FolderData) => {
+    try {
+      const newFolder = await api.createFolder(folderData);
+      setFolders(prev => [...prev, newFolder]);
+    } catch (error) {
+      console.error('Failed to add folder:', error);
+    }
+  };
+  
+  const handleDeleteFolder = async (id: string) => {
+    try {
+      await api.deleteFolder(id);
+      setFolders(prev => prev.filter(f => f.id !== id));
+      setDocs(prev => prev.filter(d => d.folderId !== id));
+    } catch (error) {
+      console.error('Failed to delete folder:', error);
+    }
+  };
+
+  const handleAddDoc = async (docData: DocData) => {
+    try {
+      const newDoc = await api.createDoc(docData);
+      setDocs(prev => [...prev, newDoc]);
+    } catch (error) {
+      console.error('Failed to add document:', error);
+    }
+  };
+  
+  const handleUpdateDoc = async (updatedDoc: Doc) => {
+    try {
+      await api.updateDoc(updatedDoc.id, updatedDoc);
+      setDocs(prev => prev.map(d => d.id === updatedDoc.id ? updatedDoc : d));
+    } catch (error) {
+      console.error('Failed to update document:', error);
+    }
+  };
+  
+  const handleDeleteDoc = async (id: string) => {
+    try {
+      await api.deleteDoc(id);
+      setDocs(prev => prev.filter(d => d.id !== id));
+    } catch (error) {
+      console.error('Failed to delete document:', error);
+    }
+  };
+  
+  const handleAddEmployee = async (employeeData: EmployeeData) => {
+    try {
+      const newEmployee = await api.createEmployee(employeeData);
+      setEmployees(prev => [...prev, newEmployee]);
+    } catch (error) {
+      console.error('Failed to add employee:', error);
+    }
+  };
+  
+  const handleUpdateEmployee = async (updatedEmployee: Employee) => {
+    try {
+      await api.updateEmployee(updatedEmployee.id, updatedEmployee);
+      setEmployees(prev => prev.map(e => e.id === updatedEmployee.id ? updatedEmployee : e));
+    } catch (error) {
+      console.error('Failed to update employee:', error);
+    }
+  };
+  
+  const handleDeleteEmployee = async (id: string) => {
+    try {
+      await api.deleteEmployee(id);
+      setEmployees(prev => prev.filter(e => e.id !== id));
+    } catch (error) {
+      console.error('Failed to delete employee:', error);
+    }
+  };
 
 
   const renderView = () => {
