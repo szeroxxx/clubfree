@@ -218,7 +218,7 @@ module.exports = {
 
 ### Start the backend with PM2
 ```bash
-pm2 start ecosystem.config.js
+
 pm2 save
 pm2 startup
 # Follow the command it gives you (copy and paste it)
