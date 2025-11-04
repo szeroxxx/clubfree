@@ -1,16 +1,17 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import { getPrismaClient } from '../db';
 
 const router = express.Router();
-const prisma = new PrismaClient();
+const prisma = getPrismaClient();
 
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     
     const user = await prisma.user.findUnique({ where: { username } });
+    console.log(user,"user")
     
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -32,6 +33,12 @@ router.post('/login', async (req, res) => {
     
     res.json({ user: userWithoutPassword, token });
   } catch (error) {
+    console.error('Login error:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      username: req.body?.username
+    });
     res.status(500).json({ error: 'Server error' });
   }
 });

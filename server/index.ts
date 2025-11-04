@@ -11,6 +11,19 @@ import documentRoutes from './routes/documents';
 
 dotenv.config({ path: '.env.local' });
 
+function validateEnvironment(): void {
+  const required = ['JWT_SECRET', 'DATABASE_URL'];
+  const missing = required.filter(key => !process.env[key]);
+  
+  if (missing.length > 0) {
+    console.error(`Missing required environment variables: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+}
+
+// Validate environment before starting server
+validateEnvironment();
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
