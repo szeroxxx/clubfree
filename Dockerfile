@@ -1,5 +1,5 @@
 # Use the official Node.js 20 image as the base image
-FROM node:18 AS builder
+FROM node:22 AS builder
 
 # Set the working directory
 WORKDIR /app
@@ -19,7 +19,7 @@ COPY . .
 RUN npm run build
 
 # Final stage: Use a lightweight base image for production
-FROM node:18 AS production
+FROM node:22 AS production
 
 # Set the working directory
 WORKDIR /app
