@@ -9,8 +9,7 @@ COPY package*.json ./
 
 # Clean install dependencies
 RUN rm -rf node_modules package-lock.json && \
-    npm install && \
-    npm install @rollup/rollup-linux-x64-gnu --save-optional
+    npm install 
 
 # Copy the entire application source code to the container
 COPY . .
@@ -27,6 +26,8 @@ WORKDIR /app
 # Copy the built frontend and node modules from the builder stage
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/server ./server
+COPY --from=builder /app/prisma ./prisma
 COPY package.json ./
 
 # Expose port 3000 for the backend
