@@ -7,8 +7,10 @@ WORKDIR /app
 # Copy relevant files for installation
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Clean install dependencies
+RUN rm -rf node_modules package-lock.json && \
+    npm install && \
+    npm install @rollup/rollup-linux-x64-gnu --save-optional
 
 # Copy the entire application source code to the container
 COPY . .
